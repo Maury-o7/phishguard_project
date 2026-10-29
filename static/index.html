@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PhishGuard</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--fg:#14171f;--mut:#667;--ok:#1a8f4c;--warn:#c27a00;--bad:#c62828;--bd:#dde1ea}
+@media(prefers-color-scheme:dark){:root{--bg:#10131a;--card:#181c25;--fg:#e8eaf0;--mut:#9aa3b5;--ok:#3ecf7a;--warn:#f0b429;--bad:#ff6b6b;--bd:#2a3040}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+main{max-width:820px;margin:0 auto;padding:20px}h1{margin:.2em 0}small,.mut{color:var(--mut)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin:14px 0}
+textarea{width:100%;min-height:130px;background:transparent;color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:10px;font:inherit}
+#drop{border:2px dashed var(--bd);border-radius:10px;padding:14px;text-align:center;color:var(--mut)}#drop.on{border-color:var(--ok)}
+#thumbs img{height:70px;margin:6px 6px 0 0;border-radius:6px;border:1px solid var(--bd)}
+.bar{height:14px;background:var(--bd);border-radius:7px;overflow:hidden}.bar i{display:block;height:100%;width:0;transition:width .25s,background .25s}
+.v{font-size:1.3rem;font-weight:700}.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:.8rem;border:1px solid var(--bd);color:var(--mut)}
+button{background:var(--fg);color:var(--bg);border:0;border-radius:8px;padding:9px 16px;font:inherit;cursor:pointer}
+ul{margin:.3em 0 0 1.1em;padding:0}
+</style></head><body><main>
+<h1>🛡️ PhishGuard</h1>
+<p class="mut">Paste a link or email, drop or paste (Ctrl+V) a screenshot. Instant checks run as you type; a deeper Gemini + Google Search analysis runs when you pause. Links are never opened.</p>
+<div class="card"><textarea id="t" placeholder="Paste a suspicious URL, or the full email (headers included if you can)…"></textarea>
+<div id="drop">Drop screenshots here or paste an image</div><div id="thumbs"></div>
+<p><button id="go">Deep analyze now</button> <small id="st"></small></p>
+<small class="mut">Privacy: the deep analysis sends what you submit to Google's Gemini API. Don't submit content you may not share.</small></div>
+<div class="card" id="live"><b>Instant check</b> <span class="tag" id="lm">heuristics</span>
+<div class="bar" style="margin:8px 0"><i id="lb"></i></div><div class="v" id="lv">Waiting for input…</div><ul id="lf"></ul></div>
+<div class="card" id="deep" hidden><b>Deep analysis</b> <span class="tag" id="dm"></span>
+<div class="bar" style="margin:8px 0"><i id="db"></i></div><div class="v" id="dv"></div><p id="de"></p><p><b id="dbrand"></b></p>
+<ul id="df"></ul><p id="dr"></p><div id="ds"></div></div>
+</main><script>
+const $=id=>document.getElementById(id);let imgs=[],qT,dT,qC,dC;
+const col=r=>r>=.7?'var(--bad)':r>=.4?'var(--warn)':'var(--ok)';
+const lab=v=>({phishing:'🚨 Likely phishing',suspicious:'⚠️ Suspicious',likely_legitimate:'✅ No strong signs of phishing'}[v]||v);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function show(p,d){$(p+'b').style.width=Math.round(d.risk_score*100)+'%';$(p+'b').style.background=col(d.risk_score);
+ $(p+'v').textContent=lab(d.verdict)+' — '+Math.round(d.risk_score*100)+'%';
+ $(p+'f').innerHTML=(d.red_flags||[]).slice(0,8).map(f=>'<li>'+esc(f)+'</li>').join('')}
+async function post(path,body,sig){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:sig});return r.json()}
+function payload(){const v=$('t').value.trim();const isEmail=/^(from|subject|reply-to):/im.test(v)||v.includes('\n')||v.length>200;
+ return{url:isEmail?null:v||null,email:isEmail?v:null,images:imgs.map(i=>i.b64),search:true}}
+async function quick(){qC&&qC.abort();qC=new AbortController();const v=$('t').value;
+ if(!v.trim()){$('lv').textContent='Waiting for input…';$('lb').style.width=0;$('lf').innerHTML='';return}
+ try{show('l',await post('/api/quick',{text:v},qC.signal))}catch(e){}}
+async function deep(){const p=payload();if(!p.url&&!p.email&&!p.images.length)return;dC&&dC.abort();dC=new AbortController();
+ $('st').textContent='Analyzing with Gemini…';
+ try{const d=await post('/api/analyze',p,dC.signal);if(d.error){$('st').textContent=d.error;return}
+  $('deep').hidden=false;show('d',d);$('dm').textContent=d.mode;$('de').textContent=d.explanation||'';
+  $('dbrand').textContent=d.brand?'Brand claimed/imitated: '+d.brand:'';$('dr').textContent=d.recommendation||'';
+  $('ds').innerHTML=(d.sources||[]).length?'<b>Sources used to verify the domain</b><ul>'+d.sources.map(s=>'<li><a href="'+esc(s.uri)+'" target="_blank" rel="noopener noreferrer">'+esc(s.title||s.uri)+'</a></li>').join('')+'</ul>':'';
+  $('st').textContent=d.note||'Done.'}catch(e){if(e.name!=='AbortError')$('st').textContent='Error: '+e}}
+$('t').addEventListener('input',()=>{clearTimeout(qT);qT=setTimeout(quick,250);clearTimeout(dT);dT=setTimeout(deep,1500)});
+$('go').onclick=deep;
+function addFile(f){if(!f||!f.type.startsWith('image/'))return;const r=new FileReader();r.onload=()=>{imgs.push({b64:r.result.split(',')[1]});
+ const im=new Image();im.src=r.result;$('thumbs').appendChild(im);clearTimeout(dT);dT=setTimeout(deep,600)};r.readAsDataURL(f)}
+document.addEventListener('paste',e=>{for(const it of e.clipboardData.items)if(it.type.startsWith('image/'))addFile(it.getAsFile())});
+const dr=$('drop');['dragover','dragenter'].forEach(ev=>dr.addEventListener(ev,e=>{e.preventDefault();dr.classList.add('on')}));
+['dragleave','drop'].forEach(ev=>dr.addEventListener(ev,e=>{e.preventDefault();dr.classList.remove('on')}));
+dr.addEventListener('drop',e=>[...e.dataTransfer.files].forEach(addFile));
+</script></body></html>

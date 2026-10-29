@@ -1,0 +1,8 @@
+From: GitHub <noreply@github.com>
+To: you@example.org
+Subject: [GitHub] A new public key was added to your account
+Authentication-Results: mx.example.org; spf=pass; dkim=pass; dmarc=pass
+Content-Type: text/plain
+
+A new SSH key was added to your account. If this was you, no action is needed.
+Review your keys at https://github.com/settings/keys

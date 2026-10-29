@@ -1,0 +1,4 @@
+{"manifest_version":3,"name":"PhishGuard link checker","version":"0.1",
+ "description":"Flags risky links on the pages you read (including webmail) using your local PhishGuard server.",
+ "permissions":[],"host_permissions":["http://127.0.0.1:8000/*"],
+ "content_scripts":[{"matches":["<all_urls>"],"js":["content.js"],"run_at":"document_idle"}]}

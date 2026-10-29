@@ -1,0 +1,7 @@
+From: "Amazon.com" <auto-confirm@amazon.com>
+To: you@example.org
+Subject: Your order has shipped
+Authentication-Results: mx.example.org; spf=pass; dkim=pass; dmarc=pass
+Content-Type: text/plain
+
+Your package is on the way. Track it at https://www.amazon.com/gp/your-account/order-history
